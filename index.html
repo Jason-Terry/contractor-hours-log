@@ -90,21 +90,10 @@
           <input type="number" id="f-hours" min="0" step="0.25" placeholder="8" />
         </div>
       </div>
-      <div class="row">
-        <div class="field">
-          <label for="f-date-submitted">Date submitted</label>
-          <input type="date" id="f-date-submitted" />
-        </div>
-        <div class="field" style="display:flex; align-items:flex-end; padding-bottom:2px;">
-          <div class="checkbox-field">
-            <input type="checkbox" id="f-paid" onchange="onPaidChange()" />
-            <span onclick="document.getElementById('f-paid').click()">Mark as paid</span>
-          </div>
-        </div>
+      <div class="field">
+        <label for="f-date-submitted">Date submitted</label>
+        <input type="date" id="f-date-submitted" />
       </div>
-      <div class="field" id="date-paid-field" style="display:none;">
-        <label for="f-date-paid">Date paid</label>
-        <input type="date" id="f-date-paid" />
       </div>
       <div class="field">
         <label for="f-notes">Update notes</label>
@@ -127,13 +116,6 @@
 
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('f-date-submitted').value = today;
-
-    function onPaidChange() {
-      const paid = document.getElementById('f-paid').checked;
-      document.getElementById('date-paid-field').style.display = paid ? 'block' : 'none';
-      if (paid) document.getElementById('f-date-paid').value = today;
-    }
-
     function setStatus(type, msg) {
       const el = document.getElementById('status-msg');
       el.className = 'status ' + type;
@@ -146,10 +128,7 @@
       const projectId     = document.getElementById('f-project').value;
       const workType      = document.getElementById('f-worktype').value;
       const hours         = document.getElementById('f-hours').value;
-      const dateSubmitted = document.getElementById('f-date-submitted').value;
-      const paid          = document.getElementById('f-paid').checked;
-      const datePaid      = document.getElementById('f-date-paid').value;
-      const notes         = document.getElementById('f-notes').value.trim();
+      const dateSubmitted = document.getElementById('f-date-submitted').value;      const notes         = document.getElementById('f-notes').value.trim();
 
       if (!name)         { setStatus('error', 'Please enter an entry name.'); return; }
       if (!contractorId) { setStatus('error', 'Please select a contractor.'); return; }
@@ -172,16 +151,8 @@
         "Hours Worked": parseFloat(hours),
         "Hourly Rate": rate,
         "date:Date Submitted:start": dateSubmitted,
-        "date:Date Submitted:is_datetime": 0,
-        "Paid": paid ? "__YES__" : "__NO__",
-        "Update Notes": notes || null
+        "date:Date Submitted:is_datetime": 0,        "Update Notes": notes || null
       };
-
-      if (paid && datePaid) {
-        properties["date:Date Paid:start"] = datePaid;
-        properties["date:Date Paid:is_datetime"] = 0;
-      }
-
       try {
         const resp = await fetch(WORKER_URL, {
           method: "POST",
@@ -211,11 +182,7 @@
           document.getElementById('f-project').value = '';
           document.getElementById('f-worktype').value = '';
           document.getElementById('f-hours').value = '';
-          document.getElementById('f-date-submitted').value = today;
-          document.getElementById('f-paid').checked = false;
-          document.getElementById('f-date-paid').value = '';
-          document.getElementById('date-paid-field').style.display = 'none';
-          document.getElementById('f-notes').value = '';
+          document.getElementById('f-date-submitted').value = today;          document.getElementById('f-notes').value = '';
         } else {
           throw new Error('Unexpected response — please check Notion to confirm.');
         }
