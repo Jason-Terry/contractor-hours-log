@@ -27,9 +27,6 @@
     .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--border-focus); }
     .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .checkbox-field { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
-    .checkbox-field input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--ink); cursor: pointer; flex-shrink: 0; }
-    .checkbox-field span { font-size: 14px; color: var(--ink); cursor: pointer; }
     .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0 1.25rem; }
     .submit-btn { width: 100%; padding: 12px; background: var(--ink); color: #fff; border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; letter-spacing: 0.04em; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
     .submit-btn:hover { opacity: 0.85; }
@@ -94,7 +91,6 @@
         <label for="f-date-submitted">Date submitted</label>
         <input type="date" id="f-date-submitted" />
       </div>
-      </div>
       <div class="field">
         <label for="f-notes">Update notes</label>
         <textarea id="f-notes" placeholder="Any notes about this entry..."></textarea>
@@ -116,6 +112,7 @@
 
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('f-date-submitted').value = today;
+
     function setStatus(type, msg) {
       const el = document.getElementById('status-msg');
       el.className = 'status ' + type;
@@ -123,12 +120,13 @@
     }
 
     async function submitEntry() {
-      const name          = document.getElementById('f-name').value.trim();
-      const contractorId  = document.getElementById('f-contractor').value;
-      const projectId     = document.getElementById('f-project').value;
-      const workType      = document.getElementById('f-worktype').value;
-      const hours         = document.getElementById('f-hours').value;
-      const dateSubmitted = document.getElementById('f-date-submitted').value;      const notes         = document.getElementById('f-notes').value.trim();
+      const name         = document.getElementById('f-name').value.trim();
+      const contractorId = document.getElementById('f-contractor').value;
+      const projectId    = document.getElementById('f-project').value;
+      const workType     = document.getElementById('f-worktype').value;
+      const hours        = document.getElementById('f-hours').value;
+      const dateSubmitted= document.getElementById('f-date-submitted').value;
+      const notes        = document.getElementById('f-notes').value.trim();
 
       if (!name)         { setStatus('error', 'Please enter an entry name.'); return; }
       if (!contractorId) { setStatus('error', 'Please select a contractor.'); return; }
@@ -136,56 +134,40 @@
       if (!workType)     { setStatus('error', 'Please select a work type.'); return; }
       if (!hours)        { setStatus('error', 'Please enter hours worked.'); return; }
 
-      const rate = RATES[contractorId];
-      const contractorUrl = `https://www.notion.so/${contractorId.replace(/-/g,'')}`;
-      const projectUrl    = `https://www.notion.so/${projectId.replace(/-/g,'')}`;
-
       setStatus('loading', 'Submitting to Notion...');
       document.getElementById('submit-btn').disabled = true;
 
-      const properties = {
-        "Name": name,
-        "Contractor": JSON.stringify([contractorUrl]),
-        "Project": JSON.stringify([projectUrl]),
-        "Work Type": workType,
-        "Hours Worked": parseFloat(hours),
-        "Hourly Rate": rate,
-        "date:Date Submitted:start": dateSubmitted,
-        "date:Date Submitted:is_datetime": 0,        "Update Notes": notes || null
-      };
       try {
         const resp = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
-            mcp_servers: [{ type: "url", url: "https://mcp.notion.com/mcp", name: "notion-mcp" }],
-            messages: [{
-              role: "user",
-              content: `Create a new page in the Notion Hour Logs data source (ID: 32db59a8-7d70-81fc-ba82-000b1d338f19) with exactly these properties: ${JSON.stringify(properties)}. Just do it, no explanation needed.`
-            }]
+            name,
+            contractorId,
+            projectId,
+            workType,
+            hours,
+            hourlyRate: RATES[contractorId],
+            dateSubmitted,
+            notes
           })
         });
 
         const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error?.message || 'API error');
 
-        const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ').toLowerCase();
-        const toolResults = (data.content || []).filter(b => b.type === 'mcp_tool_result');
-        const success = toolResults.length > 0 || text.includes('creat') || text.includes('success') || text.includes('added');
-
-        if (success) {
-          setStatus('success', 'Hours submitted successfully! Your entry has been added to Notion.');
-          document.getElementById('f-name').value = '';
-          document.getElementById('f-contractor').value = '';
-          document.getElementById('f-project').value = '';
-          document.getElementById('f-worktype').value = '';
-          document.getElementById('f-hours').value = '';
-          document.getElementById('f-date-submitted').value = today;          document.getElementById('f-notes').value = '';
-        } else {
-          throw new Error('Unexpected response — please check Notion to confirm.');
+        if (!resp.ok || data.error) {
+          throw new Error(data.error || 'Submission failed');
         }
+
+        setStatus('success', 'Hours submitted successfully! Your entry has been added to Notion.');
+        document.getElementById('f-name').value = '';
+        document.getElementById('f-contractor').value = '';
+        document.getElementById('f-project').value = '';
+        document.getElementById('f-worktype').value = '';
+        document.getElementById('f-hours').value = '';
+        document.getElementById('f-date-submitted').value = today;
+        document.getElementById('f-notes').value = '';
+
       } catch(e) {
         setStatus('error', 'Error: ' + e.message);
       }
